@@ -1,0 +1,16 @@
+chainlit
+chromadb
+email-validator
+fastapi-cli
+httptools
+jinja2
+langchain-community
+langchain-openai
+markdown
+marshmallow-enum
+pip-chill
+pip-review
+pytest
+ujson
+unstructured
+websockets
