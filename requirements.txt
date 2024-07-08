@@ -5,6 +5,7 @@ fastapi-cli
 httptools
 langchain-community
 langchain-huggingface
+langchain-mistralai
 langchain-openai
 markdown
 marshmallow-enum
