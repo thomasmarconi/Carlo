@@ -3,8 +3,9 @@ chromadb
 email-validator
 fastapi-cli
 httptools
-jinja2
 langchain-community
+langchain-huggingface
+langchain-mistralai
 langchain-openai
 markdown
 marshmallow-enum
@@ -13,4 +14,5 @@ pip-review
 pytest
 ujson
 unstructured
+uvloop
 websockets
