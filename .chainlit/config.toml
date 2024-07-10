@@ -53,10 +53,10 @@ edit_message = true
 
 [UI]
 # Name of the assistant.
-name = "Assistant"
+name = "Carlo"
 
 # Description of the assistant. This is used for HTML tags.
-# description = ""
+# description = "A helpful Catholic chat app."
 
 # Large size content are by default collapsed for a cleaner ui
 default_collapse_content = true

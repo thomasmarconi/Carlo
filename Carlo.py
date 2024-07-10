@@ -11,6 +11,9 @@ from langchain_mistralai.chat_models import ChatMistralAI
 import chainlit as cl
 import os
 
+def sort_sources(sources):
+    return list({source: None for source in [doc.metadata.get("source", None) for doc, _score in sorted(sources, key=lambda x: x[1], reverse=True)]}.keys())
+
 CHROMA_PATH = "chroma"
 
 PROMPT_TEMPLATE = """
@@ -19,15 +22,22 @@ Answer the question based only on the following context:
 {context}
 
 ---
+History: {history}
 
-Answer the question based on the above context: {question}
+Answer the question based on the above context and history: {question}
 """
+
+GENERAL_PROMPT_TEMPLATE="""
+History: {history}
+
+Answer the question with the above history as additional context: {question}
+"""
+
+EMBEDDING_FUNCTION = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+DB = Chroma(persist_directory=CHROMA_PATH, embedding_function=EMBEDDING_FUNCTION)
 
 @cl.on_chat_start
 async def on_chat_start():
-    # app_user = cl.user_session.get("user")
-    # await cl.Message(f"Hello {app_user.identifier}").send()
-    
     model = ChatMistralAI()
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -41,44 +51,35 @@ async def on_chat_start():
     runnable = prompt | model | StrOutputParser()
     cl.user_session.set("runnable", runnable)
 
-    embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    global DB
-    DB = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
-    
-
-
 @cl.on_message
 async def on_message(message: cl.Message):
     runnable = cl.user_session.get("runnable")  # type: Runnable
-
     query_text = message.content
+
+    sources=None
+    pdfs=None
 
     # Search the DB.
     results = DB.similarity_search_with_relevance_scores(query_text, k=5) # k = number of tokens to retrieve
     
-    if len(results) == 0 or results[0][1] < 0.3: # this needs to be tweaked. I have a feeling it's because the embedding function is kinda mid Should be around like .725
+    if len(results) == 0 or results[0][1] < 0.3: # this needs to be tweaked. I have a feeling it's because the embedding function is kinda mid Should be around like .725 Well actually it looks like the values are negative so I might be interpreting the results wrong
         print(f"Unable to find matching results.")
-        new_message = cl.Message(content=query_text)
+        prompt_template = ChatPromptTemplate.from_template(GENERAL_PROMPT_TEMPLATE)
+        prompt = prompt_template.format(
+            history=cl.chat_context.to_openai(),
+            question=query_text)
     else:
         context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
+        sources = sort_sources(results)
+        pdfs = [cl.Pdf(path=source, name=os.path.basename(source), display="side") for source in sources]
         prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-        prompt = prompt_template.format(context=context_text, question=query_text)
-        new_message = cl.Message(content=prompt)
-        print(prompt)   
-        source_documents = sorted([doc for doc, _score in results], key=lambda doc: doc.metadata['page'])
-        source_documents = [source_documents[i] for i in range(len(source_documents)) if i == 0 or source_documents[i].metadata['page'] != source_documents[i-1].metadata['page']]
-        text_elements = []  # type: List[cl.Text]
-        if source_documents:
-            for source_doc in source_documents:
-                filename = ' '.join(source_doc.metadata['source'].split('\\')[-1].split('.')[0].split('-'))
-                source_name = f"{filename} - Page: {source_doc.metadata['page']}"
-                # Create the text element referenced in the message
-                text_elements.append(
-                    cl.Text(content=source_doc.page_content, name=source_name, display="side")
-                )
-            source_names = [text_el.name for text_el in text_elements]
+        prompt = prompt_template.format(
+            history=cl.chat_context.to_openai(),
+            context=context_text,
+            question=query_text)
 
-    msg = cl.Message(content="")
+    new_message = cl.Message(content=prompt)
+    msg = cl.Message(content="", elements=pdfs)
 
     async for chunk in runnable.astream(
         {"question": new_message.content},
@@ -86,21 +87,14 @@ async def on_message(message: cl.Message):
     ):
         await msg.stream_token(chunk)
 
-    
-    if source_names:
-        await msg.stream_token( f"\nSources: {', '.join(source_names)}")
-    else:
-        await msg.stream_token( "\nNo sources found")
+    if sources:
+        # print(sources)
+        await msg.stream_token(f"\nSources: {', '.join([os.path.basename(source) for source in sources])}" )
 
     await msg.send()
 
 @cl.oauth_callback
-def oauth_callback(
-  provider_id: str,
-  token: str,
-  raw_user_data: Dict[str, str],
-  default_user: cl.User,
-) -> Optional[cl.User]:
+def oauth_callback(provider_id: str, token: str, raw_user_data: Dict[str, str], default_user: cl.User) -> Optional[cl.User]:
   return default_user
 
 @cl.set_starters
