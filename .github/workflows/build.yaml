@@ -1,15 +1,12 @@
 name: Create .env file
 
-on: [status]
+on: [fork]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
     - name: Create .env file
       run: |
         echo "HUGGINGFACEHUB_API_TOKEN=${{ secrets.HUGGINGFACEHUB_API_TOKEN }}" >> .env
@@ -22,4 +19,4 @@ jobs:
     # Optional: Verify the contents of the .env file (for debugging purposes)
     - name: Show .env file
       run: cat .env
-      if: ${{ github.event_name == 'status' }}
+      if: ${{ github.event_name == 'fork' }}
