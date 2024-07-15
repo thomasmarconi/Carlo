@@ -14,5 +14,4 @@ pip-review
 pytest
 ujson
 unstructured
-uvloop
 websockets
