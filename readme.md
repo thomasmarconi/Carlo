@@ -8,5 +8,5 @@
 4. Create a virtual env: `python3 -m venv venv`
 5. Enter the virtual environment -- Windows: `venv/Scripts/activate` Mac/Linux: `source venv/bin/activate`
 6. Install dependencies: `pip install -r requirements.txt`
-7. Pull .env file: `npx dotenv-vault@latest open`
+7. Pull .env file: `npx dotenv-vault@latest pull`
 7. Run Carlo: `chainlit run Carlo.py -w`
